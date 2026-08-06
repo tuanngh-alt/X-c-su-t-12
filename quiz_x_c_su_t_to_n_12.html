@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz Xác Suất Có Điều Kiện - Toán 12</title>
+  
+  <!-- Nạp Tailwind CSS cho giao diện hiện đại -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Cấu hình và nạp MathJax để hiển thị công thức Toán học -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  
+  <!-- Cấu hình màu sắc tùy chỉnh cho Tailwind -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1e3a8a',
+            secondary: '#3b82f6',
+            accent: '#ef4444',
+            bgLight: '#f8fafc',
+            cardBg: '#ffffff',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Các style bổ sung không dùng Tailwind */
+    body { font-family: 'Inter', sans-serif; }
+    .wheel-container { position: relative; width: 100%; max-width: 350px; margin: 0 auto; }
+    #canvas-wheel { width: 100%; height: auto; border-radius: 50%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 8px solid #1e3a8a; }
+    
+    /* Mũi tên chỉ vòng quay */
+    .wheel-pointer {
+      position: absolute;
+      top: -15px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; 
+      height: 0; 
+      border-left: 20px solid transparent;
+      border-right: 20px solid transparent;
+      border-top: 30px solid #ef4444;
+      z-index: 10;
+      filter: drop-shadow(0 4px 2px rgba(0,0,0,0.2));
+    }
+    
+    .hidden-section { display: none !important; }
+    
+    .option-btn { transition: all 0.2s ease; }
+    .option-btn:hover { background-color: #eff6ff; border-color: #3b82f6; }
+    .option-btn.selected { background-color: #dbeafe; border-color: #2563eb; color: #1e40af; font-weight: 600; box-shadow: 0 0 0 2px #3b82f6; }
+  </style>
+</head>
+<body class="bg-bgLight text-slate-800 min-h-screen p-4 md:p-8">
+
+<div class="max-w-4xl mx-auto">
+  <header class="text-center mb-10">
+    <h1 class="text-3xl md:text-4xl font-bold text-primary mb-2">CHƯƠNG VI: XÁC SUẤT CÓ ĐIỀU KIỆN</h1>
+    <p class="text-lg text-slate-600">Hệ thống Quiz tương tác bám sát SGK Kết nối tri thức - Toán 12</p>
+  </header>
+
+  <!-- Bước 1: Nhập danh sách học sinh -->
+  <div id="setup-section" class="bg-cardBg rounded-2xl p-6 md:p-8 shadow-lg border border-slate-100 mb-8 transition-all">
+    <h3 class="text-xl font-bold text-primary mb-4 flex items-center">
+      <span class="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center mr-3">1</span>
+      Nhập danh sách học sinh
+    </h3>
+    <p class="text-slate-600 mb-4">Dán danh sách từ file Excel hoặc nhập thủ công (mỗi tên một dòng):</p>
+    <textarea id="student-list" class="w-full h-40 p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-secondary focus:border-secondary outline-none resize-none" placeholder="Nguyễn Văn A&#10;Trần Thị B..."></textarea>
+    <div id="setup-error" class="text-red-500 mt-2 hidden text-sm font-medium">Vui lòng nhập ít nhất 2 học sinh để bắt đầu!</div>
+    <div class="mt-6 flex justify-end">
+      <button onclick="startApp()" class="bg-secondary hover:bg-blue-600 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-transform transform hover:-translate-y-1">
+        Bắt đầu Quiz
+      </button>
+    </div>
+  </div>
+
+  <!-- Bước 2: Vòng quay gọi tên -->
+  <div id="wheel-section" class="hidden-section bg-cardBg rounded-2xl p-6 md:p-8 shadow-lg border border-slate-100 mb-8 text-center text-center">
+    <h3 class="text-xl font-bold text-primary mb-6">Vòng quay chọn người trả lời</h3>
+    <div class="wheel-container">
+      <div class="wheel-pointer"></div>
+      <canvas id="canvas-wheel" width="400" height="400"></canvas>
+    </div>
+    
+    <div id="winner-name" class="mt-8 text-2xl font-bold text-accent min-h-[40px]">Sẵn sàng quay!</div>
+    
+    <button id="spin-btn" class="mt-6 bg-accent hover:bg-red-600 text-white font-bold text-lg py-3 px-10 rounded-full shadow-lg transition-transform transform hover:scale-105">
+      QUAY NGAY
+    </button>
+  </div>
+
+  <!-- Bước 3: Nội dung Quiz -->
+  <div id="quiz-area" class="hidden-section bg-cardBg rounded-2xl p-6 md:p-8 shadow-lg border border-slate-100 mb-8">
+    <div class="flex flex-col md:flex-row justify-between items-center mb-6 pb-4 border-b border-slate-200">
+      <div id="current-player" class="text-lg font-bold text-secondary mb-2 md:mb-0 px-4 py-2 bg-blue-50 rounded-lg">
+        Học sinh: ...
+      </div>
+      <div id="question-info" class="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+        Câu hỏi 1/12
+      </div>
+    </div>
+
+    <!-- Thanh tiến trình -->
+    <div class="w-full bg-slate-200 rounded-full h-2.5 mb-8">
+      <div id="progress-inner" class="bg-secondary h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+    </div>
+
+    <div id="question-container" class="mb-8">
+      <div id="question-type-badge" class="inline-block text-xs font-bold text-white bg-purple-500 px-2 py-1 rounded mb-3">Nhận biết</div>
+      <p id="question-text" class="text-lg text-slate-800 leading-relaxed mb-6 font-medium"></p>
+      
+      <!-- Nơi chứa các đáp án -->
+      <div id="options-container" class="space-y-3"></div>
+    </div>
+
+    <div class="flex flex-wrap gap-4 mt-8 pt-6 border-t border-slate-200">
+      <button id="prev-btn" onclick="prevQuestion()" class="px-6 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        Câu trước
+      </button>
+      <div class="flex-grow"></div>
+      <button id="next-btn" onclick="nextQuestion()" class="px-8 py-2.5 bg-primary hover:bg-blue-800 text-white font-bold rounded-lg shadow-md transition-transform hover:-translate-y-0.5">
+        Câu sau
+      </button>
+      <button id="submit-btn" onclick="showResults()" class="hidden-section px-8 py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-lg shadow-md transition-transform hover:-translate-y-0.5 animate-pulse">
+        Nộp bài
+      </button>
+    </div>
+  </div>
+
+  <!-- Bước 4: Kết quả -->
+  <div id="result-area" class="hidden-section bg-cardBg rounded-2xl p-6 md:p-8 shadow-lg border border-slate-100">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-bold text-primary mb-2">KẾT QUẢ HỌC TẬP</h2>
+      <p class="text-slate-500">Báo cáo chi tiết quá trình trả lời của lớp</p>
+    </div>
+    
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+      <div id="stat-summary" class="bg-slate-50 rounded-xl p-6 border border-slate-200"></div>
+      <div id="analysis-report" class="bg-blue-50 rounded-xl p-6 border border-blue-100"></div>
+    </div>
+
+    <h3 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">Chi tiết đáp án:</h3>
+    <div id="review-container" class="space-y-6"></div>
+
+    <div class="mt-10 text-center">
+      <button onclick="location.reload()" class="bg-primary hover:bg-blue-800 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-transform hover:scale-105">
+        Làm lại từ đầu
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Cấu trúc dữ liệu câu hỏi (Đã thêm correctAnswer bị thiếu ở câu 9, 10)
+  const questions = [
+    {
+      id: 1, type: "single", level: "Nhận biết", skill: "Khái niệm & Công thức nhân",
+      question: "Cho hai biến cố $A$ và $B$ với $P(B) > 0$. Công thức tính xác suất của $A$ với điều kiện $B$ là:",
+      options: [
+        "$P(A|B) = \\dfrac{P(A \\cap B)}{P(A)}$",
+        "$P(A|B) = \\dfrac{P(A \\cap B)}{P(B)}$",
+        "$P(A|B) = \\dfrac{P(B)}{P(A \\cap B)}$",
+        "$P(A|B) = P(A) \\cdot P(B)$"
+      ],
+      correctAnswer: 1,
+      explanation: "Theo định nghĩa, xác suất có điều kiện $P(A|B)$ là tỉ số giữa xác suất của biến cố giao $A \\cap B$ và xác suất của biến cố điều kiện $B$.",
+      reviewHint: "Ôn lại định nghĩa xác suất có điều kiện tại Bài 18, trang 64 SGK Tập 2."
+    },
+    {
+      id: 2, type: "single", level: "Thông hiểu", skill: "Khái niệm & Công thức nhân",
+      question: "Cho $P(A) = 0.6$, $P(B) = 0.5$ và $P(A \\cap B) = 0.3$. Tính $P(B|A)$?",
+      options: ["0.5", "0.2", "0.6", "0.8"],
+      correctAnswer: 0,
+      explanation: "$P(B|A) = \\dfrac{P(A \\cap B)}{P(A)} = \\dfrac{0.3}{0.6} = 0.5$.",
+      reviewHint: "Sử dụng công thức $P(B|A) = P(A \\cap B) / P(A)$."
+    },
+    {
+      id: 3, type: "single", level: "Thông hiểu", skill: "Sơ đồ hình cây",
+      question: "Trong sơ đồ hình cây, nếu nhánh thứ nhất có xác suất $P(A) = 0.4$ và nhánh thứ hai tương ứng là xác suất có điều kiện $P(B|A) = 0.7$, thì xác suất của biến cố giao $P(A \\cap B)$ là:",
+      options: ["0.28", "1.1", "0.3", "0.5"],
+      correctAnswer: 0,
+      explanation: "Áp dụng công thức nhân xác suất: $P(A \\cap B) = P(A) \\cdot P(B|A) = 0.4 \\cdot 0.7 = 0.28$.",
+      reviewHint: "Xác suất trên một đường đi của sơ đồ cây bằng tích các xác suất trên các nhánh của đường đi đó."
+    },
+    {
+      id: 4, type: "single", level: "Vận dụng", skill: "Xác suất toàn phần",
+      question: "Một hộp có 5 bi xanh và 3 bi đỏ. Lấy ngẫu nhiên ra 1 bi, sau đó không trả lại vào hộp và lấy tiếp 1 bi nữa. Tính xác suất để bi thứ hai là bi xanh biết bi thứ nhất là bi đỏ?",
+      options: ["$\\dfrac{5}{7}$", "$\\dfrac{5}{8}$", "$\\dfrac{4}{7}$", "$\\dfrac{3}{8}$"],
+      correctAnswer: 0,
+      explanation: "Sau khi lấy 1 bi đỏ, trong hộp còn lại 7 bi (5 xanh, 2 đỏ). Xác suất lấy bi xanh tiếp theo là $5/7$.",
+      reviewHint: "Xác định số lượng vật phẩm còn lại sau mỗi giai đoạn."
+    },
+    {
+      id: 5, type: "single", level: "Nhận biết", skill: "Khái niệm & Công thức nhân",
+      question: "Nếu hai biến cố $A$ và $B$ độc lập thì phát biểu nào sau đây đúng?",
+      options: [
+        "$P(A|B) = P(A)$",
+        "$P(A|B) = P(B)$",
+        "$P(A \\cap B) = P(A) + P(B)$",
+        "$P(A|B) = 0$"
+      ],
+      correctAnswer: 0,
+      explanation: "Khi $A, B$ độc lập, việc $B$ xảy ra không ảnh hưởng đến xác suất của $A$, nên $P(A|B) = P(A)$.",
+      reviewHint: "Xem lại tính chất của biến cố độc lập."
+    },
+    {
+      id: 6, type: "single", level: "Vận dụng", skill: "Xác suất toàn phần",
+      question: "Tỉ lệ phế phẩm của máy I là 2%, máy II là 3%. Một kho chứa hàng của hai máy với tỉ lệ sản phẩm máy I là 60%, máy II là 40%. Lấy ngẫu nhiên 1 sản phẩm. Xác suất sản phẩm đó là phế phẩm là:",
+      options: ["0.024", "0.026", "0.05", "0.018"],
+      correctAnswer: 0, 
+      // Sửa lỗi logic đề bài (Đáp án đúng là 0.024 nằm ở index 0)
+      explanation: "$P(F) = P(M1)P(F|M1) + P(M2)P(F|M2) = 0.6 \\cdot 0.02 + 0.4 \\cdot 0.03 = 0.012 + 0.012 = 0.024$.",
+      reviewHint: "Sử dụng công thức xác suất toàn phần."
+    },
+    {
+      id: 7, type: "single", level: "Phân tích", skill: "Công thức Bayes",
+      question: "Một loại bệnh có tỉ lệ mắc trong cộng đồng là 0.1%. Xét nghiệm chẩn đoán bệnh có độ chính xác 99% (người bệnh có kết quả dương tính là 99%, người không bệnh có kết quả âm tính là 99%). Một người có kết quả dương tính, tính xác suất thực sự người đó có bệnh?",
+      options: ["0.09", "0.1", "0.99", "0.5"],
+      correctAnswer: 0,
+      explanation: "Áp dụng Bayes: $P(B|D+) = \\dfrac{0.001 \\cdot 0.99}{0.001 \\cdot 0.99 + 0.999 \\cdot 0.01} \\approx 0.09$.",
+      reviewHint: "Ôn tập Bài 19: Công thức Bayes trang 72 SGK."
+    },
+    {
+      id: 8, type: "single", level: "Thông hiểu", skill: "Khái niệm & Công thức nhân",
+      question: "Cho $P(A) = 0.4$, $P(B|A) = 0.5$. Tính $P(A \\cap B)$?",
+      options: ["0.2", "0.9", "0.1", "0.5"],
+      correctAnswer: 0,
+      explanation: "$P(A \\cap B) = P(A) \\cdot P(B|A) = 0.4 \\cdot 0.5 = 0.2$.",
+      reviewHint: "Công thức nhân xác suất cơ bản."
+    },
+    {
+      id: 9, type: "multiple", level: "Vận dụng", skill: "Xác suất toàn phần",
+      question: "Xét bài toán sản xuất từ hai phân xưởng. Gọi $A$ là biến cố 'Sản phẩm từ xưởng 1', $B$ là 'Sản phẩm từ xưởng 2'. Gọi $F$ là 'Sản phẩm lỗi'. Chọn các phát biểu ĐÚNG:",
+      options: [
+        "A và B là một hệ đầy đủ các biến cố.",
+        "P(F) = P(A)P(F|A) + P(B)P(F|B)",
+        "P(A|F) là xác suất sản phẩm lỗi đến từ xưởng 1.",
+        "P(F) luôn luôn bằng P(A) + P(B)."
+      ],
+      correctAnswer: [0, 1, 2], // Đã sửa lỗi thiếu đáp án
+      explanation: "$A, B$ tạo thành hệ đầy đủ. Công thức toàn phần và ý nghĩa Bayes ở các đáp án trên đều đúng.",
+      reviewHint: "Hệ đầy đủ các biến cố và công thức toàn phần."
+    },
+    {
+      id: 10, type: "multiple", level: "Thông hiểu", skill: "Sơ đồ hình cây",
+      question: "Sơ đồ hình cây giúp chúng ta điều gì? (Chọn các ý đúng)",
+      options: [
+        "Trực quan hóa các giai đoạn của phép thử.",
+        "Tính xác suất của các kết quả hợp thành.",
+        "Thay thế hoàn toàn công thức Bayes.",
+        "Chỉ dùng cho các bài toán lấy bi không hoàn lại."
+      ],
+      correctAnswer: [0, 1], // Đã sửa lỗi thiếu đáp án
+      explanation: "Sơ đồ cây giúp mô tả trực quan các giai đoạn liên tiếp và tính toán xác suất tích.",
+      reviewHint: "Phương pháp sơ đồ hình cây trang 61 SGK."
+    },
+    {
+      id: 11, type: "short", level: "Thông hiểu", skill: "Khái niệm & Công thức nhân",
+      question: "Biết $P(A \\cap B) = 0.15$ và $P(B) = 0.6$. Tính $P(A|B)$. (Nhập kết quả dưới dạng số thập phân)",
+      correctAnswer: "0.25",
+      explanation: "$P(A|B) = 0.15 / 0.6 = 0.25$.",
+      reviewHint: "Phép chia cơ bản dựa trên định nghĩa."
+    },
+    {
+      id: 12, type: "short", level: "Vận dụng", skill: "Xác suất toàn phần",
+      question: "Một bài thi trắc nghiệm có 10 câu. Học sinh giỏi trả lời đúng mỗi câu với xác suất 0.9. Tính xác suất học sinh đó trả lời đúng cả 2 câu đầu tiên?",
+      correctAnswer: "0.81",
+      explanation: "Vì các câu hỏi độc lập, $P(C1 \\cap C2) = 0.9 \\cdot 0.9 = 0.81$.",
+      reviewHint: "Áp dụng quy tắc nhân cho các biến cố độc lập."
+    }
+  ];
+
+  let students = [];
+  let userAnswers = new Array(questions.length).fill(null);
+  let currentQuestionIndex = 0;
+  let currentPlayer = "";
+
+  // --- HÀM XỬ LÝ VÒNG QUAY ---
+  const canvas = document.getElementById('canvas-wheel');
+  const ctx = canvas.getContext('2d');
+  let startAngle = 0;
+  let arc = 0;
+  let spinTimeout = null;
+  let spinAngleStart = 10;
+  let spinTime = 0;
+  let spinTimeTotal = 0;
+  
+  // Bảng màu cho vòng quay
+  const colors = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+
+  function drawWheel() {
+    if (students.length === 0) return;
+    arc = Math.PI / (students.length / 2);
+    ctx.clearRect(0, 0, 400, 400);
+    
+    for (let i = 0; i < students.length; i++) {
+      let angle = startAngle + i * arc;
+      ctx.fillStyle = colors[i % colors.length];
+      
+      ctx.beginPath();
+      ctx.moveTo(200, 200);
+      ctx.arc(200, 200, 190, angle, angle + arc, false);
+      ctx.lineTo(200, 200);
+      ctx.fill();
+      
+      // Viền các ô
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.save();
+      ctx.fillStyle = "white";
+      ctx.font = "bold 16px 'Inter', sans-serif";
+      // Canh chỉnh chữ
+      ctx.translate(200 + Math.cos(angle + arc / 2) * 140, 200 + Math.sin(angle + arc / 2) * 140);
+      ctx.rotate(angle + arc / 2 + Math.PI / 2);
+      let text = students[i];
+      if (text.length > 12) text = text.substring(0, 10) + '...';
+      ctx.fillText(text, -ctx.measureText(text).width / 2, 0);
+      ctx.restore();
+    }
+  }
+
+  function rotateWheel() {
+    spinTime += 30;
+    if (spinTime >= spinTimeTotal) {
+      stopRotateWheel();
+      return;
+    }
+    let spinAngle = spinAngleStart - easeOut(spinTime, 0, spinAngleStart, spinTimeTotal);
+    startAngle += (spinAngle * Math.PI / 180);
+    drawWheel();
+    spinTimeout = setTimeout(rotateWheel, 30);
+  }
+
+  function stopRotateWheel() {
+    clearTimeout(spinTimeout);
+    let degrees = startAngle * 180 / Math.PI + 90;
+    let arcd = arc * 180 / Math.PI;
+    let index = Math.floor((360 - degrees % 360) / arcd);
+    
+    // Đảm bảo index hợp lệ (tránh lỗi số âm)
+    if (index < 0) index = (index % students.length) + students.length;
+    index = index % students.length;
+    
+    currentPlayer = students[index];
+    const winnerEl = document.getElementById("winner-name");
+    winnerEl.innerHTML = `Xin chúc mừng:<br><span class="text-3xl mt-2 block text-primary">${currentPlayer}</span>`;
+    
+    // Chuyển sang màn hình câu hỏi sau 2 giây
+    setTimeout(() => {
+      document.getElementById("wheel-section").classList.add("hidden-section");
+      document.getElementById("quiz-area").classList.remove("hidden-section");
+      document.getElementById("current-player").innerHTML = `<span class="text-slate-500 font-normal">Lượt của:</span> ${currentPlayer}`;
+      showQuestion();
+    }, 2000);
+  }
+
+  // Thuật toán easing cho vòng quay mượt mà
+  function easeOut(t, b, c, d) {
+    let ts = (t /= d) * t;
+    let tc = ts * t;
+    return b + c * (tc + -3 * ts + 3 * t);
+  }
+
+  document.getElementById("spin-btn").addEventListener("click", () => {
+    document.getElementById("winner-name").innerHTML = "Đang quay...";
+    spinAngleStart = Math.random() * 10 + 10;
+    spinTime = 0;
+    spinTimeTotal = Math.random() * 3 + 4 * 1000;
+    rotateWheel();
+  });
+
+  // --- QUẢN LÝ QUIZ ---
+  function startApp() {
+    const list = document.getElementById("student-list").value.trim();
+    const errorEl = document.getElementById("setup-error");
+    
+    students = list.split('\n').filter(s => s.trim() !== "");
+    
+    if(students.length < 2) { 
+      errorEl.classList.remove("hidden");
+      return; 
+    }
+    errorEl.classList.add("hidden");
+    
+    document.getElementById("setup-section").classList.add("hidden-section");
+    document.getElementById("wheel-section").classList.remove("hidden-section");
+    drawWheel();
+  }
+
+  function showQuestion() {
+    const q = questions[currentQuestionIndex];
+    
+    // Cập nhật thông tin tiến độ và huy hiệu
+    document.getElementById("question-info").innerText = `Câu hỏi ${currentQuestionIndex + 1}/${questions.length}`;
+    
+    const badge = document.getElementById("question-type-badge");
+    badge.innerText = `[${q.level}] - ${q.type === 'multiple' ? 'Nhiều lựa chọn' : (q.type === 'short' ? 'Điền khuyết' : 'Trắc nghiệm')}`;
+    // Đổi màu badge theo độ khó
+    if(q.level === 'Nhận biết') badge.className = "inline-block text-xs font-bold text-white bg-green-500 px-2 py-1 rounded mb-3";
+    else if(q.level === 'Thông hiểu') badge.className = "inline-block text-xs font-bold text-white bg-blue-500 px-2 py-1 rounded mb-3";
+    else badge.className = "inline-block text-xs font-bold text-white bg-purple-500 px-2 py-1 rounded mb-3";
+
+    document.getElementById("question-text").innerHTML = `<strong>Câu ${currentQuestionIndex + 1}:</strong> ${q.question}`;
+    
+    const container = document.getElementById("options-container");
+    container.innerHTML = "";
+
+    if (q.type === "single" || q.type === "multiple") {
+      q.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn w-full text-left p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex items-start group";
+        
+        // Kiểm tra xem đã chọn chưa
+        if (userAnswers[currentQuestionIndex] !== null) {
+          if (Array.isArray(userAnswers[currentQuestionIndex])) {
+            if (userAnswers[currentQuestionIndex].includes(idx)) btn.classList.add("selected");
+          } else {
+            if (userAnswers[currentQuestionIndex] === idx) btn.classList.add("selected");
+          }
+        }
+        
+        const letter = String.fromCharCode(65 + idx); // A, B, C, D
+        btn.innerHTML = `<span class="inline-block min-w-[28px] h-7 bg-slate-100 text-slate-600 rounded flex items-center justify-center mr-3 font-bold group-hover:bg-blue-100 group-[.selected]:bg-blue-500 group-[.selected]:text-white transition-colors">${letter}</span> <span class="flex-1 mt-0.5">${opt}</span>`;
+        btn.onclick = () => selectOption(idx);
+        container.appendChild(btn);
+      });
+    } else if (q.type === "short") {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-secondary focus:border-secondary outline-none text-lg";
+      input.value = userAnswers[currentQuestionIndex] || "";
+      input.placeholder = "Nhập kết quả của bạn vào đây...";
+      input.oninput = (e) => { userAnswers[currentQuestionIndex] = e.target.value; };
+      container.appendChild(input);
+    }
+
+    updateProgress();
+    
+    // Render lại công thức Toán học
+    if(window.MathJax) {
+      MathJax.typesetPromise([document.getElementById('question-container')]).catch(err => console.log(err));
+    }
+  }
+
+  function selectOption(idx) {
+    const q = questions[currentQuestionIndex];
+    if (q.type === "single") {
+      userAnswers[currentQuestionIndex] = idx;
+    } else if (q.type === "multiple") {
+      if (!Array.isArray(userAnswers[currentQuestionIndex])) userAnswers[currentQuestionIndex] = [];
+      const pos = userAnswers[currentQuestionIndex].indexOf(idx);
+      if (pos > -1) userAnswers[currentQuestionIndex].splice(pos, 1);
+      else userAnswers[currentQuestionIndex].push(idx);
+    }
+    showQuestion();
+  }
+
+  function nextQuestion() {
+    if (currentQuestionIndex < questions.length - 1) {
+      currentQuestionIndex++;
+      
+      // Chuyển về vòng quay để đổi học sinh trả lời cho câu tiếp theo
+      document.getElementById("quiz-area").classList.add("hidden-section");
+      document.getElementById("wheel-section").classList.remove("hidden-section");
+      document.getElementById("winner-name").innerText = "Đến lượt ai tiếp theo?";
+      
+      // Reset vòng quay
+      drawWheel();
+    } else {
+      document.getElementById("next-btn").classList.add("hidden-section");
+      document.getElementById("submit-btn").classList.remove("hidden-section");
+    }
+  }
+
+  function prevQuestion() {
+    if (currentQuestionIndex > 0) {
+      currentQuestionIndex--;
+      showQuestion();
+      
+      // Khôi phục nút "Câu sau" nếu đang ở câu cuối
+      document.getElementById("next-btn").classList.remove("hidden-section");
+      document.getElementById("submit-btn").classList.add("hidden-section");
+    }
+  }
+
+  function updateProgress() {
+    const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+    document.getElementById("progress-inner").style.width = progress + "%";
+    document.getElementById("prev-btn").disabled = currentQuestionIndex === 0;
+  }
+
+  function showResults() {
+    document.getElementById("quiz-area").classList.add("hidden-section");
+    document.getElementById("result-area").classList.remove("hidden-section");
+
+    let score = 0;
+    let skillScores = {};
+
+    questions.forEach((q, idx) => {
+      let isCorrect = false;
+      const uAns = userAnswers[idx];
+      
+      if (q.type === "single") {
+        isCorrect = uAns === q.correctAnswer;
+      } else if (q.type === "multiple") {
+        isCorrect = Array.isArray(uAns) && [...uAns].sort().toString() === [...q.correctAnswer].sort().toString();
+      } else if (q.type === "short") {
+        // Loại bỏ khoảng trắng 2 đầu khi so sánh
+        isCorrect = (uAns || "").trim() === q.correctAnswer;
+      }
+
+      if (isCorrect) score++;
+
+      // Gom nhóm theo kỹ năng (Skill)
+      if (!skillScores[q.skill]) skillScores[q.skill] = { correct: 0, total: 0 };
+      skillScores[q.skill].total++;
+      if (isCorrect) skillScores[q.skill].correct++;
+    });
+
+    const finalScore = (score / questions.length) * 10;
+    
+    // Xếp loại
+    let rank = "";
+    let rankColor = "";
+    if (finalScore >= 9) { rank = "Xuất sắc"; rankColor = "text-green-600"; }
+    else if (finalScore >= 7) { rank = "Tốt"; rankColor = "text-blue-600"; }
+    else if (finalScore >= 5) { rank = "Đạt"; rankColor = "text-yellow-600"; }
+    else { rank = "Cần cố gắng"; rankColor = "text-red-600"; }
+
+    // Render Bảng tóm tắt
+    document.getElementById("stat-summary").innerHTML = `
+      <h4 class="font-bold text-slate-700 mb-4 border-b pb-2">Tổng quan</h4>
+      <div class="space-y-3">
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <span class="text-slate-600">Tổng số câu:</span>
+          <span class="font-bold">${questions.length}</span>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <span class="text-slate-600">Số câu đúng:</span>
+          <span class="font-bold text-green-600">${score}</span>
+        </div>
+        <div class="flex justify-between border-b border-slate-100 pb-2">
+          <span class="text-slate-600">Điểm số (Thang 10):</span>
+          <span class="font-bold text-2xl text-primary">${finalScore.toFixed(1)}</span>
+        </div>
+        <div class="flex justify-between pt-2">
+          <span class="text-slate-600">Đánh giá chung:</span>
+          <span class="font-bold uppercase ${rankColor}">${rank}</span>
+        </div>
+      </div>
+    `;
+
+    // Render Phân tích năng lực
+    let weakSkills = Object.keys(skillScores).filter(s => skillScores[s].correct / skillScores[s].total < 0.7);
+    let analysisHtml = `<h4 class="font-bold text-slate-700 mb-4 border-b border-blue-200 pb-2">Phân tích chuyên sâu</h4>`;
+    
+    if (weakSkills.length > 0) {
+      analysisHtml += `
+        <p class="text-sm text-slate-600 mb-2">Dựa trên kết quả, lớp/nhóm cần tập trung ôn luyện thêm các nội dung sau:</p>
+        <ul class="list-disc pl-5 text-red-500 font-medium space-y-1">
+          <li>${weakSkills.join("</li><li>")}</li>
+        </ul>
+      `;
+    } else {
+      analysisHtml += `
+        <div class="flex items-center text-green-600 mt-4">
+          <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span class="font-bold">Tuyệt vời! Các mảng kiến thức đều đã được nắm vững.</span>
+        </div>
+      `;
+    }
+    
+    // Hiển thị tỷ lệ từng phần
+    analysisHtml += `<div class="mt-4 space-y-2">`;
+    for(let skill in skillScores) {
+      let percent = Math.round((skillScores[skill].correct / skillScores[skill].total) * 100);
+      let barColor = percent >= 70 ? 'bg-green-500' : (percent >= 50 ? 'bg-yellow-500' : 'bg-red-500');
+      analysisHtml += `
+        <div>
+          <div class="flex justify-between text-xs mb-1"><span class="text-slate-600">${skill}</span><span>${percent}%</span></div>
+          <div class="w-full bg-slate-200 rounded-full h-1.5"><div class="${barColor} h-1.5 rounded-full" style="width: ${percent}%"></div></div>
+        </div>
+      `;
+    }
+    analysisHtml += `</div>`;
+    
+    document.getElementById("analysis-report").innerHTML = analysisHtml;
+
+    // Chi tiết đáp án
+    let reviewHtml = "";
+    questions.forEach((q, idx) => {
+      let isCorrect = false;
+      const uAns = userAnswers[idx];
+      let userAnsDisplay = "";
+      let correctAnsDisplay = "";
+      
+      // Định dạng câu trả lời hiển thị
+      if (q.type === "single") {
+        isCorrect = uAns === q.correctAnswer;
+        userAnsDisplay = uAns !== null ? String.fromCharCode(65 + uAns) : "Bỏ trống";
+        correctAnsDisplay = String.fromCharCode(65 + q.correctAnswer);
+      } else if (q.type === "multiple") {
+        isCorrect = Array.isArray(uAns) && [...uAns].sort().toString() === [...q.correctAnswer].sort().toString();
+        userAnsDisplay = Array.isArray(uAns) && uAns.length > 0 ? uAns.sort().map(a => String.fromCharCode(65 + a)).join(", ") : "Bỏ trống";
+        correctAnsDisplay = q.correctAnswer.sort().map(a => String.fromCharCode(65 + a)).join(", ");
+      } else {
+        isCorrect = (uAns || "").trim() === q.correctAnswer;
+        userAnsDisplay = uAns ? uAns : "Bỏ trống";
+        correctAnsDisplay = q.correctAnswer;
+      }
+
+      const statusColor = isCorrect ? "bg-green-100 border-green-300 text-green-800" : "bg-red-50 border-red-200 text-red-800";
+      const icon = isCorrect ? "✅" : "❌";
+
+      reviewHtml += `
+        <div class="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-sm">
+          <div class="p-4 border-b border-slate-100">
+            <p class="font-medium text-slate-800"><strong>Câu ${idx+1}:</strong> ${q.question}</p>
+          </div>
+          <div class="p-4 bg-slate-50 flex flex-col md:flex-row md:items-center gap-4">
+            <div class="px-4 py-2 rounded-lg border ${statusColor} font-medium flex-1">
+              ${icon} Bạn chọn: <strong>${userAnsDisplay}</strong>
+            </div>
+            <div class="px-4 py-2 rounded-lg border bg-blue-50 border-blue-200 text-blue-800 font-medium flex-1">
+              🎯 Đáp án đúng: <strong>${correctAnsDisplay}</strong>
+            </div>
+          </div>
+          <div class="p-4 bg-yellow-50/50 border-t border-yellow-100 text-sm">
+            <p class="mb-2"><strong class="text-yellow-800">Giải thích:</strong> <span class="text-slate-700">${q.explanation}</span></p>
+            <p><em class="text-slate-500">💡 Gợi ý ôn tập: ${q.reviewHint}</em></p>
+          </div>
+        </div>
+      `;
+    });
+    
+    document.getElementById("review-container").innerHTML = reviewHtml;
+    
+    // Render công thức Toán ở phần kết quả
+    if(window.MathJax) {
+      MathJax.typesetPromise([document.getElementById('result-area')]).catch(err => console.log(err));
+    }
+  }
+</script>
+
+</body>
+</html>
